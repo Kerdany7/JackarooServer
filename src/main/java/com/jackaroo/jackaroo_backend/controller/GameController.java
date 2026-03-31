@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/game")
 public class GameController {
+
     @Autowired
     private GameService gameService;
 
@@ -20,5 +21,34 @@ public class GameController {
     public GameState getGameState() {
         return gameService.getGameState();
     }
+
+    @PostMapping("/select-card")
+    public GameState selectCard(@RequestParam int cardIndex) throws Exception {
+        return gameService.selectCard(cardIndex);
+    }
+
+    @PostMapping("/select-marble")
+    public GameState selectMarble(@RequestParam int marbleIndex) throws Exception {
+        return gameService.selectMarble(marbleIndex);
+    }
+
+    @PostMapping("/play")
+    public GameState playTurn() throws Exception {
+        return gameService.playTurn();
+    }
+
+    @PostMapping("/end-turn")
+    public GameState endTurn() {
+        return gameService.endTurn();
+    }
+
+    @PostMapping("/deselect")
+    public GameState deselect() {
+        return gameService.deselect();
+    }
+
 }
+
+
+
 
