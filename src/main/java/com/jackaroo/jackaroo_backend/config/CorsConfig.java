@@ -12,7 +12,7 @@ public class CorsConfig implements WebMvcConfigurer {
                     "http://localhost:5174",
                     "http://localhost:5175",
                     "http://localhost:4173",
-                    "https://YOUR-VERCEL-URL.vercel.app"
+                    "https://jackaroo-client.vercel.app"
                 )
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
