@@ -8,7 +8,9 @@
 
 ## What is Jackaroo?
 
-Jackaroo is a popular Egyptian card board game where players race their marbles around a 100-cell track using a deck of special cards. Each card has a unique ability — some move marbles forward, some swap, some send marbles back to base. This project brings it online, allowing real players to join a shared room and play together in real time.
+Jackaroo is a 4-player marble racing card game. Each player controls 4 marbles and tries to get all of them into their safe zone before anyone else. On each turn, a player plays a card from their hand to either move a marble, field a new marble from home, or use a special ability. Some cards let you attack opponents, swap marbles across the board, or split movement between two marbles.
+
+The game plays over multiple rounds. Each round players receive a shrinking hand (4 cards, then 3, then 2, then 1) before the deck is reshuffled and hands are dealt again.
 
 ---
 
@@ -21,7 +23,7 @@ Jackaroo is a popular Egyptian card board game where players race their marbles 
 | Real-time | WebSocket (STOMP over SockJS) |
 | API | REST (JSON) |
 | Build | Maven |
-| Game Engine | Custom OOP engine (ported from university project) |
+| Game Engine | Custom OOP engine |
 
 ---
 
@@ -31,38 +33,51 @@ The backend is split into two layers:
 
 **API / Application layer** (`com.jackaroo.jackaroo_backend`)
 - `LobbyController` — room creation, joining, leaving, kicking, heartbeat
-- `GameController` — single-player game actions (start, select card, select marble, play, end turn, CPU step)
+- `GameController` — single-player game actions
 - `RoomService` — manages active game rooms, session tokens, and routes player actions to the correct room
 - `GameService` — wraps the game engine and exposes game actions as a stateful service
 - `WebSocketConfig` — STOMP broker on `/ws`, publishes live game state updates to `/topic/...`
 - DTOs — `GameState`, `LobbyState`, `CellState`, `SafeZoneState`, `PlayerInfo`, `SlotInfo`
 
 **Game Engine** (`engine` / `model`)
-- `Game` — main game controller, manages players, turns, fire pit (discard pile), and win detection
-- `Board` — 100-cell circular track with NORMAL, ENTRY, BASE, and TRAP cell types
-- `SafeZone` — per-player safe zone cells
-- `Card` hierarchy — abstract `Card` with 12 concrete types: Ace, Four, Five, Seven, Ten, Jack, King, Queen, Burner, Saver, and wild variants
-- `Deck` — loaded from `Cards.csv`, handles drawing and reshuffling
-- `Player` / `CPU` — players hold a hand of cards and 4 marbles; CPU plays automatically
+- `Game` — main controller managing players, turns, the fire pit (discard pile), round progression, and win detection
+- `Board` — 100-cell circular track with NORMAL, ENTRY, BASE, and TRAP cell types, plus one SafeZone per player
+- `Card` hierarchy — abstract `Card` with concrete implementations:
+
+| Card | Effect |
+|---|---|
+| Ace | Field a marble from home, or move 1 step |
+| King | Field a marble from home, or move 13 steps |
+| Jack | Swap one of your marbles with an opponent's |
+| Seven | Move 7 steps, or split the movement between two marbles |
+| Four | Move backward 4 steps |
+| Five | Move forward 5 steps |
+| Ten | Move forward 10 steps |
+| Queen | Move forward 12 steps |
+| Burner (wild) | Destroy any opponent marble, sending it back home |
+| Saver (wild) | Send one of your marbles directly to your safe zone |
+
+- `Deck` — loaded from `Cards.csv`, handles drawing and reshuffling into the fire pit when the pool runs low
+- `Player` / `CPU` — players hold a hand of cards and up to 4 marbles; CPU plays automatically
 
 ---
 
-## Room Flow
+## Room & Game Flow
 
 ```
-POST /api/lobby/create?hostName=     → creates room, returns roomCode + session token
-POST /api/lobby/{roomCode}/join      → join room, returns session token
-POST /api/lobby/{roomCode}/start     → host starts game (requires X-Session-Token header)
-POST /api/lobby/{roomCode}/select-card
-POST /api/lobby/{roomCode}/select-marble
-POST /api/lobby/{roomCode}/play
-POST /api/lobby/{roomCode}/end-turn
-POST /api/lobby/{roomCode}/deselect
-POST /api/lobby/{roomCode}/set-split
-POST /api/lobby/{roomCode}/heartbeat
-POST /api/lobby/{roomCode}/leave
-POST /api/lobby/{roomCode}/kick
-GET  /api/lobby/{roomCode}/game-state
+POST /api/lobby/create?hostName=          → create room, returns roomCode + session token
+POST /api/lobby/{roomCode}/join           → join room, returns session token
+POST /api/lobby/{roomCode}/start          → host starts the game
+POST /api/lobby/{roomCode}/select-card    → select a card from hand
+POST /api/lobby/{roomCode}/select-marble  → select a marble to act on
+POST /api/lobby/{roomCode}/play           → execute the selected card + marble
+POST /api/lobby/{roomCode}/end-turn       → discard selected card and end turn
+POST /api/lobby/{roomCode}/deselect       → deselect current card/marble
+POST /api/lobby/{roomCode}/set-split      → set split distance for Seven card
+POST /api/lobby/{roomCode}/heartbeat      → keep connection alive
+POST /api/lobby/{roomCode}/leave          → leave the room
+POST /api/lobby/{roomCode}/kick           → host kicks a player
+GET  /api/lobby/{roomCode}/game-state     → fetch current game state
 ```
 
 All room actions require an `X-Session-Token` header returned at join/create time.
@@ -79,9 +94,7 @@ cd JackarooServer
 ./mvnw spring-boot:run
 ```
 
-Server starts on `http://localhost:8080`.
-
-Make sure the frontend is configured to point to `http://localhost:8080` (or update CORS in `CorsConfig.java`).
+Server starts on `http://localhost:8080`. Make sure the frontend is configured to point to this URL (or update the allowed origins in `CorsConfig.java`).
 
 ---
 
@@ -106,4 +119,4 @@ src/main/resources/
 
 ## Status
 
-> Work in progress — core gameplay is functional, some edge cases are still being ironed out.
+> Work in progress — core gameplay is functional, some edge cases are still being worked on.
