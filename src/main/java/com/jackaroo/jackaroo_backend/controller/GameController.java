@@ -1,9 +1,9 @@
 package com.jackaroo.jackaroo_backend.controller;
+
 import com.jackaroo.jackaroo_backend.dto.GameState;
 import com.jackaroo.jackaroo_backend.service.GameService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
-
 
 @RestController
 @RequestMapping("/api/game")
@@ -42,13 +42,23 @@ public class GameController {
         return gameService.endTurn();
     }
 
+    @PostMapping("/cpu-step")
+    public GameState cpuStep() {
+        return gameService.cpuStep();
+    }
+
+    @PostMapping("/set-split")
+    public GameState setSplitDistance(@RequestParam int distance) throws Exception {
+        return gameService.setSplitDistance(distance);
+    }
+
     @PostMapping("/deselect")
     public GameState deselect() {
         return gameService.deselect();
     }
 
+    @PostMapping("/restart")
+    public GameState restart() throws Exception {
+        return gameService.restartGame();
+    }
 }
-
-
-
-

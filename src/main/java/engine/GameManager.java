@@ -13,4 +13,5 @@ public interface GameManager {
     public void discardCard() throws CannotDiscardException;
     public Colour getActivePlayerColour();
     public Colour getNextPlayerColour();
+    public void addEvent(String event);
 }

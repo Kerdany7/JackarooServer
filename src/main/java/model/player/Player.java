@@ -55,6 +55,10 @@ public class Player {
     public Card getSelectedCard() {
         return selectedCard;
     }
+
+    public ArrayList<Marble> getSelectedMarbles() {
+        return selectedMarbles;
+    }
     
     public void regainMarble(Marble marble) {
         this.marbles.add(marble);
@@ -68,17 +72,19 @@ public class Player {
     }
 
     public void selectCard(Card card) throws InvalidCardException {
-        if (!this.hand.contains(card)) 
+        if (!this.hand.contains(card))
             throw new InvalidCardException("Card not in hand.");
-        
+
         this.selectedCard = card;
+        this.selectedMarbles.clear();  // marble selection always resets when card changes
     }
 
     public void selectMarble(Marble marble) throws InvalidMarbleException {
-        if (!this.selectedMarbles.contains(marble)) {
-            if(this.selectedMarbles.size() > 1)
+        if (this.selectedMarbles.contains(marble)) {
+            this.selectedMarbles.remove(marble);  // toggle off
+        } else {
+            if (this.selectedMarbles.size() >= 2)
                 throw new InvalidMarbleException("Cannot select more than 2 marbles.");
-            
             selectedMarbles.add(marble);
         }
     }

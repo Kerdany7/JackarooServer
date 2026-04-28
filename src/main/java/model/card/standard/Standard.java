@@ -28,6 +28,11 @@ public class Standard extends Card {
     }
 
     @Override
+    public String getDisplayName() {
+        return getName() + " of " + suit.toString();
+    }
+
+    @Override
     public void act(ArrayList<Marble> marbles) throws ActionException, InvalidMarbleException{
         this.boardManager.moveBy(marbles.get(0), rank, false);
     }

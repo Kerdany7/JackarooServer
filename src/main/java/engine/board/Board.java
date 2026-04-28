@@ -222,12 +222,17 @@ public class Board implements BoardManager {
         
         targetCell.setMarble(marble);
 
+        if (targetCell.getCellType() == CellType.SAFE) {
+            gameManager.addEvent("SAFE:" + marble.getColour().name());
+        }
+
         if(targetCell.isTrap()) {
+            gameManager.addEvent("TRAP:" + marble.getColour().name());
             destroyMarble(marble);
             targetCell.setTrap(false);
             assignTrapCell();
         }
-        
+
 	}
     
     private void validateSwap(Marble marble_1, Marble marble_2) throws IllegalSwapException {

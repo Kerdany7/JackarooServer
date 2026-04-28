@@ -26,6 +26,11 @@ public abstract class Card {
         return name;
     }
 
+    // Override in subclasses to include suit info etc.
+    public String getDisplayName() {
+        return name;
+    }
+
     public String getDescription() {
         return description;
     }

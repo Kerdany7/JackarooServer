@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 
 import engine.board.Board;
 import engine.board.SafeZone;
@@ -26,11 +27,42 @@ public class Game implements GameManager {
 	private int currentPlayerIndex;
     private final ArrayList<Card> firePit;
     private int turn;
+    private int roundCount;
+    private final ArrayList<String> events;
 
+    /** Multiplayer constructor: first N names are human players, rest become CPUs. */
+    public Game(List<String> playerNames) throws IOException {
+        turn = 0;
+        currentPlayerIndex = 0;
+        roundCount = 1;
+        firePit = new ArrayList<>();
+        events = new ArrayList<>();
+
+        ArrayList<Colour> colourOrder = new ArrayList<>(Arrays.asList(Colour.values()));
+        Collections.shuffle(colourOrder);
+
+        this.board = new Board(colourOrder, this);
+        Deck.loadCardPool(this.board, this);
+
+        this.players = new ArrayList<>();
+        for (int i = 0; i < 4; i++) {
+            if (i < playerNames.size()) {
+                this.players.add(new Player(playerNames.get(i), colourOrder.get(i)));
+            } else {
+                this.players.add(new CPU("CPU " + (i - playerNames.size() + 1), colourOrder.get(i), this.board));
+            }
+        }
+        for (int i = 0; i < 4; i++)
+            this.players.get(i).setHand(Deck.drawCards());
+    }
+
+    /** Single-player constructor: one human + 3 CPUs. */
     public Game(String playerName) throws IOException {
         turn = 0;
         currentPlayerIndex = 0;
+        roundCount = 1;
         firePit = new ArrayList<>();
+        events = new ArrayList<>();
 
         ArrayList<Colour> colourOrder = new ArrayList<>();
         
@@ -94,17 +126,29 @@ public class Game implements GameManager {
 
     public void endPlayerTurn() {
         Card selected = players.get(currentPlayerIndex).getSelectedCard();
-        players.get(currentPlayerIndex).getHand().remove(selected);
-        firePit.add(selected);
+        if (selected != null) {
+            players.get(currentPlayerIndex).getHand().remove(selected);
+            firePit.add(selected);
+        }
         players.get(currentPlayerIndex).deselectAll();
-        
+
         currentPlayerIndex = (currentPlayerIndex + 1) % 4;
-        
-        if(currentPlayerIndex == 0 && turn < 3) 
+
+        if(currentPlayerIndex == 0 && turn < 3)
             turn++;
-        
+
         else if (currentPlayerIndex == 0 && turn == 3) {
         	turn = 0;
+        	roundCount++;
+        	// Collect all remaining cards before dealing new hands
+        	for (Player p : players) {
+        	    firePit.addAll(p.getHand());
+        	    p.getHand().clear();
+        	}
+        	if (Deck.getPoolSize() < 16) {
+        	    Deck.refillPool(firePit);
+        	    firePit.clear();
+        	}
         	for (Player p : players) {
               if(Deck.getPoolSize() < 4) {
 	              Deck.refillPool(firePit);
@@ -113,9 +157,27 @@ public class Game implements GameManager {
               ArrayList<Card> newHand = Deck.drawCards();
               p.setHand(newHand);
         	}
-        		
+
         }
-        
+
+    }
+
+    public int getRoundCount() { return roundCount; }
+    public int getTurnInRound() { return turn; }
+
+    public Player getNextPlayer() {
+        return players.get((currentPlayerIndex + 1) % 4);
+    }
+
+    @Override
+    public void addEvent(String event) {
+        events.add(event);
+    }
+
+    public List<String> pollEvents() {
+        List<String> copy = new ArrayList<>(events);
+        events.clear();
+        return copy;
     }
 
     public Colour checkWin() {
@@ -131,6 +193,7 @@ public class Game implements GameManager {
         for (Player player : players) {
             if (player.getColour() == marble.getColour()) {
                 player.regainMarble(marble);
+                addEvent("HOME:" + marble.getColour().name());
                 break;
             }
         }
@@ -139,12 +202,13 @@ public class Game implements GameManager {
     @Override
     public void fieldMarble() throws CannotFieldException, IllegalDestroyException {
         Marble marble = players.get(currentPlayerIndex).getOneMarble();
-        
+
         if (marble == null)
         	throw new CannotFieldException("No marbles left in the Home Zone to field.");
-        
+
         board.sendToBase(marble);
         players.get(currentPlayerIndex).getMarbles().remove(marble);
+        addEvent("FIELD:" + marble.getColour().name());
     }
     
     @Override
@@ -178,5 +242,12 @@ public class Game implements GameManager {
     public Colour getNextPlayerColour() {
         return players.get((currentPlayerIndex + 1) % 4).getColour();
     }
-    
+
+    public boolean isCurrentPlayerCPU() {
+        return players.get(currentPlayerIndex) instanceof CPU;
+    }
+
+    public int getCurrentPlayerIndex() {
+        return currentPlayerIndex;
+    }
 }
