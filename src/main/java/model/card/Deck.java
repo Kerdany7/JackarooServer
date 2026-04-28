@@ -1,7 +1,8 @@
 package model.card;
 
 import java.io.BufferedReader;
-import java.io.FileReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -29,7 +30,7 @@ public class Deck {
 	public static void loadCardPool(BoardManager boardManager, GameManager gameManager) throws IOException {
         cardsPool = new ArrayList<>();
 
-		BufferedReader br = new BufferedReader(new FileReader(CARDS_FILE));
+		BufferedReader br = new BufferedReader(new InputStreamReader(Deck.class.getResourceAsStream("/Cards.csv")));
 
 		while (br.ready()) {
 			String nextLine = br.readLine();
