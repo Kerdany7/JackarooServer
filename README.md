@@ -2,7 +2,7 @@
 
 > Spring Boot backend for Jackaroo, a real-time online multiplayer card board game. Handles room management, game state, turn logic, and live updates via WebSocket (STOMP).
 
-**Frontend repo:** [JackarooFrontend](https://github.com/Kerdany7) <!-- replace with actual link -->
+**Frontend repo:** [JackarooFrontend](https://github.com/Kerdany7/JackarooClient) 
 
 ---
 
