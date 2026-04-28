@@ -23,6 +23,7 @@ import model.player.*;
 @SuppressWarnings("unused")
 public class Game implements GameManager {
     private final Board board;
+    private final Deck deck;
     private final ArrayList<Player> players;
 	private int currentPlayerIndex;
     private final ArrayList<Card> firePit;
@@ -30,7 +31,12 @@ public class Game implements GameManager {
     private int roundCount;
     private final ArrayList<String> events;
 
-    /** Multiplayer constructor: first N names are human players, rest become CPUs. */
+    /** Single-player shorthand: one human + 3 CPUs. */
+    public Game(String playerName) throws IOException {
+        this(List.of(playerName));
+    }
+
+    /** Primary constructor. First N names are humans, remaining slots are filled by CPUs. */
     public Game(List<String> playerNames) throws IOException {
         turn = 0;
         currentPlayerIndex = 0;
@@ -42,47 +48,18 @@ public class Game implements GameManager {
         Collections.shuffle(colourOrder);
 
         this.board = new Board(colourOrder, this);
-        Deck.loadCardPool(this.board, this);
+        this.deck = new Deck();
+        this.deck.loadCardPool(this.board, this);
 
         this.players = new ArrayList<>();
         for (int i = 0; i < 4; i++) {
-            if (i < playerNames.size()) {
+            if (i < playerNames.size())
                 this.players.add(new Player(playerNames.get(i), colourOrder.get(i)));
-            } else {
+            else
                 this.players.add(new CPU("CPU " + (i - playerNames.size() + 1), colourOrder.get(i), this.board));
-            }
         }
-        for (int i = 0; i < 4; i++)
-            this.players.get(i).setHand(Deck.drawCards());
-    }
-
-    /** Single-player constructor: one human + 3 CPUs. */
-    public Game(String playerName) throws IOException {
-        turn = 0;
-        currentPlayerIndex = 0;
-        roundCount = 1;
-        firePit = new ArrayList<>();
-        events = new ArrayList<>();
-
-        ArrayList<Colour> colourOrder = new ArrayList<>();
-        
-        colourOrder.addAll(Arrays.asList(Colour.values()));
-        
-        Collections.shuffle(colourOrder);
-        
-        this.board = new Board(colourOrder, this);
-        
-        Deck.loadCardPool(this.board, (GameManager)this);
-        
-        this.players = new ArrayList<>();
-        this.players.add(new Player(playerName, colourOrder.get(0)));
-        
-        for (int i = 1; i < 4; i++) 
-            this.players.add(new CPU("CPU " + i, colourOrder.get(i), this.board));
-        
-        for (int i = 0; i < 4; i++) 
-            this.players.get(i).setHand(Deck.drawCards());
-        
+        for (Player p : this.players)
+            p.setHand(this.deck.drawCards());
     }
     
     public Board getBoard() {
@@ -140,30 +117,28 @@ public class Game implements GameManager {
         else if (currentPlayerIndex == 0 && turn == 3) {
         	turn = 0;
         	roundCount++;
-        	// Collect all remaining cards before dealing new hands
         	for (Player p : players) {
         	    firePit.addAll(p.getHand());
         	    p.getHand().clear();
         	}
-        	if (Deck.getPoolSize() < 16) {
-        	    Deck.refillPool(firePit);
+        	if (deck.getPoolSize() < 16) {
+        	    deck.refillPool(firePit);
         	    firePit.clear();
         	}
         	for (Player p : players) {
-              if(Deck.getPoolSize() < 4) {
-	              Deck.refillPool(firePit);
-	              firePit.clear();
-              }
-              ArrayList<Card> newHand = Deck.drawCards();
-              p.setHand(newHand);
+                if (deck.getPoolSize() < 4) {
+                    deck.refillPool(firePit);
+                    firePit.clear();
+                }
+                p.setHand(deck.drawCards());
         	}
-
         }
 
     }
 
     public int getRoundCount() { return roundCount; }
     public int getTurnInRound() { return turn; }
+    public int getDeckCount() { return deck.getPoolSize(); }
 
     public Player getNextPlayer() {
         return players.get((currentPlayerIndex + 1) % 4);

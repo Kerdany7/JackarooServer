@@ -23,11 +23,10 @@ import model.card.wild.Burner;
 import model.card.wild.Saver;
 
 public class Deck {
-    private static final String CARDS_FILE = "Cards.csv";
-    static private ArrayList<Card> cardsPool;
+    private ArrayList<Card> cardsPool;
 
     @SuppressWarnings("resource")
-	public static void loadCardPool(BoardManager boardManager, GameManager gameManager) throws IOException {
+	public void loadCardPool(BoardManager boardManager, GameManager gameManager) throws IOException {
         cardsPool = new ArrayList<>();
 
 		BufferedReader br = new BufferedReader(new InputStreamReader(Deck.class.getResourceAsStream("/Cards.csv")));
@@ -77,18 +76,18 @@ public class Deck {
         }
     }
 
-    public static ArrayList<Card> drawCards() {
+    public ArrayList<Card> drawCards() {
         Collections.shuffle(cardsPool);
         ArrayList<Card> cards = new ArrayList<>(cardsPool.subList(0, 4));
         cardsPool.subList(0, 4).clear();
         return cards;
     }
-    
-    public static int getPoolSize() {
+
+    public int getPoolSize() {
 		return cardsPool.size();
 	}
 
-    public static void refillPool(ArrayList<Card> cards) {
+    public void refillPool(ArrayList<Card> cards) {
         cardsPool.addAll(cards);
     }
 

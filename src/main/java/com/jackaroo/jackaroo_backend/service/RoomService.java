@@ -4,10 +4,7 @@ import com.jackaroo.jackaroo_backend.dto.*;
 import com.jackaroo.jackaroo_backend.model.GameRoom;
 import com.jackaroo.jackaroo_backend.model.PlayerSlot;
 import engine.Game;
-import engine.board.Cell;
-import engine.board.SafeZone;
 import model.card.Card;
-import model.card.Deck;
 import model.player.CPU;
 import model.player.Marble;
 import model.player.Player;
@@ -19,7 +16,6 @@ import org.springframework.stereotype.Service;
 import java.security.SecureRandom;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 
 @Service
 public class RoomService {
@@ -129,7 +125,7 @@ public class RoomService {
         GameRoom room = getRoom(roomCode);
         validateTurn(room, sessionToken);
         Player current = currentPlayer(room.getGame());
-        List<Marble> actionable = filterActionableMarbles(
+        List<Marble> actionable = GameStateBuilder.filterActionableMarbles(
             room.getGame().getBoard().getActionableMarbles(),
             current.getSelectedCard(),
             room.getGame().getActivePlayerColour()
@@ -298,7 +294,7 @@ public class RoomService {
         var firePit = game.getFirePit();
         state.setFirePitCount(firePit.size());
         state.setFirePitTopCard(firePit.isEmpty() ? null : firePit.get(firePit.size() - 1).getDisplayName());
-        state.setDeckCount(Deck.getPoolSize());
+        state.setDeckCount(game.getDeckCount());
         state.setRoundCount(game.getRoundCount());
         state.setTurnInRound(game.getTurnInRound());
 
@@ -308,59 +304,26 @@ public class RoomService {
 
         state.setEvents(game.pollEvents());
 
-        // Actionable marbles filtered by selected card
-        List<Marble> actionableMarbles = filterActionableMarbles(
+        List<Marble> actionable = GameStateBuilder.filterActionableMarbles(
             game.getBoard().getActionableMarbles(),
             current.getSelectedCard(),
             game.getActivePlayerColour()
         );
-        Map<Marble, Integer> actionableMap = new IdentityHashMap<>();
-        for (int i = 0; i < actionableMarbles.size(); i++)
-            actionableMap.put(actionableMarbles.get(i), i);
+        Map<Marble, Integer> actionableMap = GameStateBuilder.buildActionableMap(actionable);
+        List<Marble> selected = current.getSelectedMarbles();
 
-        List<Marble> selectedMarbles = current.getSelectedMarbles();
+        state.setTrack(GameStateBuilder.buildTrack(game, actionableMap, selected));
+        state.setSafeZones(GameStateBuilder.buildSafeZones(game, actionableMap, selected));
 
-        // Track
-        List<CellState> track = new ArrayList<>();
-        for (Cell cell : game.getBoard().getTrack()) {
-            Marble m = cell.getMarble();
-            track.add(new CellState(
-                m != null ? m.getColour().toString() : null,
-                cell.getCellType().toString(), cell.isTrap(),
-                m != null ? actionableMap.getOrDefault(m, -1) : -1,
-                m != null && selectedMarbles.contains(m)
-            ));
-        }
-        state.setTrack(track);
-
-        // Safe zones
-        List<SafeZoneState> szList = new ArrayList<>();
-        for (SafeZone sz : game.getBoard().getSafeZones()) {
-            List<CellState> cells = new ArrayList<>();
-            for (Cell cell : sz.getCells()) {
-                Marble m = cell.getMarble();
-                cells.add(new CellState(
-                    m != null ? m.getColour().toString() : null,
-                    "SAFE", false,
-                    m != null ? actionableMap.getOrDefault(m, -1) : -1,
-                    m != null && selectedMarbles.contains(m)
-                ));
-            }
-            szList.add(new SafeZoneState(sz.getColour().toString(), cells));
-        }
-        state.setSafeZones(szList);
-
-        // Players
-        List<com.jackaroo.jackaroo_backend.dto.PlayerInfo> infos = new ArrayList<>();
+        List<PlayerInfo> infos = new ArrayList<>();
         for (Player p : game.getPlayers()) {
-            boolean isCPU = p instanceof CPU;
             String colour = p.getColour().toString();
-            boolean disconnected = room.getSlots().stream()
-                .anyMatch(s -> colour.equals(s.getColour()) && !s.isConnected());
-            infos.add(new com.jackaroo.jackaroo_backend.dto.PlayerInfo(
+            boolean connected = !(p instanceof CPU) && room.getSlots().stream()
+                .anyMatch(s -> colour.equals(s.getColour()) && s.isConnected());
+            infos.add(new PlayerInfo(
                 p.getName(), colour,
                 p.getMarbles().size(), p.getHand().size(),
-                !isCPU && !disconnected,
+                connected,
                 p.getColour() == game.getActivePlayerColour()
             ));
         }
@@ -411,16 +374,6 @@ public class RoomService {
             if (caller != null) ls.setSessionToken(forToken);
         }
         return ls;
-    }
-
-    private List<Marble> filterActionableMarbles(List<Marble> marbles, Card card, model.Colour ownerColour) {
-        if (card == null) return marbles;
-        String name = card.getName().toLowerCase();
-        if (name.contains("burner"))
-            return marbles.stream().filter(m -> m.getColour() != ownerColour).collect(Collectors.toList());
-        if (name.contains("saver"))
-            return marbles.stream().filter(m -> m.getColour() == ownerColour).collect(Collectors.toList());
-        return marbles;
     }
 
     private String generateCode() {

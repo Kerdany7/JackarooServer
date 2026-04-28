@@ -2,10 +2,7 @@ package com.jackaroo.jackaroo_backend.service;
 
 import com.jackaroo.jackaroo_backend.dto.*;
 import engine.Game;
-import engine.board.Cell;
-import engine.board.SafeZone;
 import model.card.Card;
-import model.card.Deck;
 import model.player.CPU;
 import model.player.Marble;
 import model.player.Player;
@@ -125,7 +122,7 @@ public class GameService {
         ArrayList<Card> firePit = game.getFirePit();
         state.setFirePitCount(firePit.size());
         state.setFirePitTopCard(firePit.isEmpty() ? null : firePit.get(firePit.size() - 1).getDisplayName());
-        state.setDeckCount(Deck.getPoolSize());
+        state.setDeckCount(game.getDeckCount());
         state.setRoundCount(game.getRoundCount());
         state.setTurnInRound(game.getTurnInRound());
 
@@ -135,50 +132,17 @@ public class GameService {
 
         state.setEvents(game.pollEvents());
 
-        // Actionable marbles — filter based on selected card to avoid misleading UI rings
-        List<Marble> actionableMarbles = filterActionableMarbles(
+        List<Marble> actionable = GameStateBuilder.filterActionableMarbles(
             game.getBoard().getActionableMarbles(),
             current.getSelectedCard(),
             game.getActivePlayerColour()
         );
-        Map<Marble, Integer> actionableMap = new IdentityHashMap<>();
-        for (int i = 0; i < actionableMarbles.size(); i++)
-            actionableMap.put(actionableMarbles.get(i), i);
+        Map<Marble, Integer> actionableMap = GameStateBuilder.buildActionableMap(actionable);
+        List<Marble> selected = current.getSelectedMarbles();
 
-        List<Marble> selectedMarbles = current.getSelectedMarbles();
+        state.setTrack(GameStateBuilder.buildTrack(game, actionableMap, selected));
+        state.setSafeZones(GameStateBuilder.buildSafeZones(game, actionableMap, selected));
 
-        // Track cells
-        List<CellState> track = new ArrayList<>();
-        for (Cell cell : game.getBoard().getTrack()) {
-            Marble m = cell.getMarble();
-            track.add(new CellState(
-                m != null ? m.getColour().toString() : null,
-                cell.getCellType().toString(),
-                cell.isTrap(),
-                m != null ? actionableMap.getOrDefault(m, -1) : -1,
-                m != null && selectedMarbles.contains(m)
-            ));
-        }
-        state.setTrack(track);
-
-        // Safe zones
-        List<SafeZoneState> szStates = new ArrayList<>();
-        for (SafeZone sz : game.getBoard().getSafeZones()) {
-            List<CellState> cells = new ArrayList<>();
-            for (Cell cell : sz.getCells()) {
-                Marble m = cell.getMarble();
-                cells.add(new CellState(
-                    m != null ? m.getColour().toString() : null,
-                    "SAFE", false,
-                    m != null ? actionableMap.getOrDefault(m, -1) : -1,
-                    m != null && selectedMarbles.contains(m)
-                ));
-            }
-            szStates.add(new SafeZoneState(sz.getColour().toString(), cells));
-        }
-        state.setSafeZones(szStates);
-
-        // Players
         List<PlayerInfo> playerInfos = new ArrayList<>();
         for (Player p : game.getPlayers()) {
             playerInfos.add(new PlayerInfo(
@@ -191,29 +155,6 @@ public class GameService {
         state.setPlayers(playerInfos);
 
         return state;
-    }
-
-    /**
-     * Filters the raw actionable marble list based on which card is selected,
-     * so the frontend doesn't show misleading selection rings on invalid targets.
-     */
-    private List<Marble> filterActionableMarbles(List<Marble> marbles, Card card, model.Colour ownerColour) {
-        if (card == null) return marbles;
-        String name = card.getName().toLowerCase();
-
-        if (name.contains("burner")) {
-            // Burner: only opponent marbles (not owner's own marbles)
-            return marbles.stream()
-                .filter(m -> m.getColour() != ownerColour)
-                .collect(java.util.stream.Collectors.toList());
-        }
-        if (name.contains("saver")) {
-            // Saver: only own marbles on track (safe-zone marbles can't be re-saved)
-            return marbles.stream()
-                .filter(m -> m.getColour() == ownerColour)
-                .collect(java.util.stream.Collectors.toList());
-        }
-        return marbles;
     }
 
     Game getGame() { return game; }

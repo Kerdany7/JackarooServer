@@ -103,16 +103,19 @@ public class Board implements BoardManager {
     private ArrayList<Cell> validateSteps(Marble marble, int steps) throws IllegalMovementException {
     	Colour ownerColour = gameManager.getActivePlayerColour();
         ArrayList<Cell> safeZone = getSafeZone(marble.getColour());
-        int entryPosition = getEntryPosition(ownerColour);
+        // Entry position must be based on the marble's own colour, not the active player's colour.
+        // When the Five card moves an opponent marble, we still compute that marble's own entry
+        // so the distance check and safe-zone branching are correct.
+        int entryPosition = getEntryPosition(marble.getColour());
 
         int positionOnTrack = getPositionInPath(track, marble);
         int positionInSafeZone = getPositionInPath(safeZone, marble);
 
         ArrayList<Cell> fullPath = new ArrayList<>();
-        
+
         if (positionOnTrack == -1 && positionInSafeZone == -1)
             throw new IllegalMovementException("Cannot move a marble that is not on track nor Safe Zone");
-        
+
         if (positionOnTrack != -1) {
             int distanceToEntry = entryPosition - positionOnTrack;
 
@@ -332,18 +335,22 @@ public class Board implements BoardManager {
         int positionInSafeZone = getPositionInPath(getSafeZone(marble.getColour()), marble);
 
         validateSaving(positionInSafeZone, positionOnTrack);
-    
-        ArrayList<Cell> safeZone = getSafeZone(marble.getColour());
-        ArrayList<Cell> freeSpaces = new ArrayList<>();
 
-        for(Cell cell : safeZone){
-            if(cell.getMarble() == null)
-                freeSpaces.add(cell);
+        ArrayList<Cell> safeZone = getSafeZone(marble.getColour());
+        Cell targetCell = null;
+        for (Cell cell : safeZone) {
+            if (cell.getMarble() == null) {
+                targetCell = cell;
+                break;
+            }
         }
 
-        int randIndex = (int)(Math.random() * freeSpaces.size());
-        freeSpaces.get(randIndex).setMarble(marble);
+        if (targetCell == null)
+            throw new InvalidMarbleException("Safe zone is already full.");
+
+        targetCell.setMarble(marble);
         this.track.get(positionOnTrack).setMarble(null);
+        gameManager.addEvent("SAFE:" + marble.getColour().name());
 	}
     
     @Override
